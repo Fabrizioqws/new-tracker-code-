@@ -1,0 +1,684 @@
+// src/App.js
+import React, { useState, useEffect } from 'react';
+import { 
+  Plus, Search, Target, Calendar, Apple, Trash2, 
+  Edit3, Save, Activity, Clock, Flame 
+} from 'lucide-react';
+import './App.css';
+
+const CalorieTrackerApp = () => {
+  // Estados principales
+  const [user, setUser] = useState({
+    name: 'Usuario',
+    dailyGoal: 2000,
+    weight: 70,
+    height: 170,
+    age: 30,
+    gender: 'male',
+    activityLevel: 'moderately_active',
+    goal: 'maintain'
+  });
+
+  const [meals, setMeals] = useState(() => {
+    const saved = localStorage.getItem('caloritrack-meals');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [exercises, setExercises] = useState(() => {
+    const saved = localStorage.getItem('caloritrack-exercises');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [showAddMeal, setShowAddMeal] = useState(false);
+  const [showAddExercise, setShowAddExercise] = useState(false);
+  const [editingUser, setEditingUser] = useState(false);
+
+  // Base de datos de alimentos
+  const foodDatabase = [
+    { name: 'Manzana', calories: 52, protein: 0.3, carbs: 14, fat: 0.2, fiber: 2.4, serving: '100g' },
+    { name: 'Plátano', calories: 89, protein: 1.1, carbs: 23, fat: 0.3, fiber: 2.6, serving: '100g' },
+    { name: 'Arroz blanco cocido', calories: 130, protein: 2.7, carbs: 28, fat: 0.3, fiber: 0.4, serving: '100g' },
+    { name: 'Pollo pechuga', calories: 165, protein: 31, carbs: 0, fat: 3.6, fiber: 0, serving: '100g' },
+    { name: 'Huevo', calories: 155, protein: 13, carbs: 1.1, fat: 11, fiber: 0, serving: '100g' },
+    { name: 'Leche entera', calories: 61, protein: 3.2, carbs: 4.8, fat: 3.3, fiber: 0, serving: '100ml' },
+    { name: 'Pan integral', calories: 247, protein: 13, carbs: 41, fat: 4.2, fiber: 7, serving: '100g' },
+    { name: 'Yogur natural', calories: 59, protein: 10, carbs: 3.6, fat: 0.4, fiber: 0, serving: '100g' },
+    { name: 'Almendras', calories: 579, protein: 21, carbs: 22, fat: 50, fiber: 12, serving: '100g' },
+    { name: 'Brócoli', calories: 34, protein: 2.8, carbs: 7, fat: 0.4, fiber: 2.6, serving: '100g' },
+    { name: 'Salmón', calories: 208, protein: 20, carbs: 0, fat: 13, fiber: 0, serving: '100g' },
+    { name: 'Avena', calories: 389, protein: 17, carbs: 66, fat: 7, fiber: 11, serving: '100g' },
+    { name: 'Aguacate', calories: 160, protein: 2, carbs: 9, fat: 15, fiber: 7, serving: '100g' },
+    { name: 'Pasta cocida', calories: 131, protein: 5, carbs: 25, fat: 1.1, fiber: 1.8, serving: '100g' },
+    { name: 'Tomate', calories: 18, protein: 0.9, carbs: 3.9, fat: 0.2, fiber: 1.2, serving: '100g' },
+    { name: 'Atún en agua', calories: 116, protein: 26, carbs: 0, fat: 0.8, fiber: 0, serving: '100g' },
+    { name: 'Quinoa cocida', calories: 120, protein: 4.4, carbs: 22, fat: 1.9, fiber: 2.8, serving: '100g' },
+    { name: 'Lentejas cocidas', calories: 116, protein: 9, carbs: 20, fat: 0.4, fiber: 8, serving: '100g' }
+  ];
+
+  // Base de datos de ejercicios (MET values)
+  const exerciseDatabase = [
+    { name: 'Caminar (ritmo normal)', met: 3.5, category: 'Cardiovascular' },
+    { name: 'Caminar (ritmo rápido)', met: 4.3, category: 'Cardiovascular' },
+    { name: 'Correr (8 km/h)', met: 8.3, category: 'Cardiovascular' },
+    { name: 'Correr (10 km/h)', met: 9.8, category: 'Cardiovascular' },
+    { name: 'Correr (12 km/h)', met: 11.5, category: 'Cardiovascular' },
+    { name: 'Ciclismo (16 km/h)', met: 5.8, category: 'Cardiovascular' },
+    { name: 'Ciclismo (20 km/h)', met: 8.0, category: 'Cardiovascular' },
+    { name: 'Ciclismo (25 km/h)', met: 10.0, category: 'Cardiovascular' },
+    { name: 'Natación (moderada)', met: 5.8, category: 'Cardiovascular' },
+    { name: 'Natación (intensa)', met: 9.8, category: 'Cardiovascular' },
+    { name: 'Bailar', met: 4.8, category: 'Cardiovascular' },
+    { name: 'Yoga', met: 2.5, category: 'Flexibilidad' },
+    { name: 'Pilates', met: 3.0, category: 'Flexibilidad' },
+    { name: 'Pesas (moderado)', met: 3.5, category: 'Fuerza' },
+    { name: 'Pesas (intenso)', met: 6.0, category: 'Fuerza' },
+    { name: 'Crossfit', met: 8.0, category: 'Fuerza' },
+    { name: 'Fútbol', met: 7.0, category: 'Deportes' },
+    { name: 'Básquetbol', met: 6.5, category: 'Deportes' },
+    { name: 'Tenis', met: 5.0, category: 'Deportes' },
+    { name: 'Padel', met: 6.0, category: 'Deportes' },
+    { name: 'Escaleras (subir)', met: 8.8, category: 'Cardiovascular' },
+    { name: 'Jardinería', met: 3.8, category: 'Actividad Cotidiana' },
+    { name: 'Limpieza del hogar', met: 2.8, category: 'Actividad Cotidiana' },
+    { name: 'Tai Chi', met: 3.0, category: 'Flexibilidad' },
+    { name: 'Saltar cuerda', met: 8.8, category: 'Cardiovascular' },
+    { name: 'Hiking', met: 6.0, category: 'Cardiovascular' }
+  ];
+
+  // Guardar en localStorage cuando cambien los datos
+  useEffect(() => {
+    localStorage.setItem('caloritrack-meals', JSON.stringify(meals));
+  }, [meals]);
+
+  useEffect(() => {
+    localStorage.setItem('caloritrack-exercises', JSON.stringify(exercises));
+  }, [exercises]);
+
+  useEffect(() => {
+    localStorage.setItem('caloritrack-user', JSON.stringify(user));
+  }, [user]);
+
+  // Cargar datos del usuario al inicio
+  useEffect(() => {
+    const savedUser = localStorage.getItem('caloritrack-user');
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
+    }
+  }, []);
+
+  // Funciones de cálculo
+  const calculateCaloriesBurned = (met, durationMinutes, weightKg) => {
+    const hours = durationMinutes / 60;
+    return Math.round(met * weightKg * hours);
+  };
+
+  const calculateBMI = () => {
+    const heightInM = user.height / 100;
+    return (user.weight / (heightInM * heightInM)).toFixed(1);
+  };
+
+  const getBMICategory = (bmi) => {
+    if (bmi < 18.5) return { category: 'Bajo peso', color: 'bmi-underweight' };
+    if (bmi < 25) return { category: 'Normal', color: 'bmi-normal' };
+    if (bmi < 30) return { category: 'Sobrepeso', color: 'bmi-overweight' };
+    return { category: 'Obesidad', color: 'bmi-obese' };
+  };
+
+  const calculateBMR = () => {
+    if (user.gender === 'male') {
+      return 88.362 + (13.397 * user.weight) + (4.799 * user.height) - (5.677 * user.age);
+    } else {
+      return 447.593 + (9.247 * user.weight) + (3.098 * user.height) - (4.330 * user.age);
+    }
+  };
+
+  const calculateTDEE = () => {
+    const bmr = calculateBMR();
+    const activityMultipliers = {
+      sedentary: 1.2,
+      lightly_active: 1.375,
+      moderately_active: 1.55,
+      very_active: 1.725,
+      extra_active: 1.9
+    };
+    return Math.round(bmr * activityMultipliers[user.activityLevel]);
+  };
+
+  const getCalorieRecommendations = () => {
+    const tdee = calculateTDEE();
+    return {
+      maintain: tdee,
+      lose: tdee - 500,
+      gain: tdee + 300
+    };
+  };
+
+  const updateGoalBasedOnObjective = (newGoal) => {
+    const recommendations = getCalorieRecommendations();
+    setUser({
+      ...user,
+      goal: newGoal,
+      dailyGoal: recommendations[newGoal]
+    });
+  };
+
+  // Funciones de búsqueda y agregado
+  const searchFoods = (query) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    
+    setIsSearching(true);
+    setTimeout(() => {
+      const results = foodDatabase.filter(food =>
+        food.name.toLowerCase().includes(query.toLowerCase())
+      );
+      setSearchResults(results);
+      setIsSearching(false);
+    }, 300);
+  };
+
+  const addMealFromSearch = (food, quantity = 100) => {
+    const multiplier = quantity / 100;
+    const newMeal = {
+      id: Date.now(),
+      date: selectedDate,
+      name: food.name,
+      calories: Math.round(food.calories * multiplier),
+      protein: Math.round(food.protein * multiplier * 10) / 10,
+      carbs: Math.round(food.carbs * multiplier * 10) / 10,
+      fat: Math.round(food.fat * multiplier * 10) / 10,
+      fiber: Math.round(food.fiber * multiplier * 10) / 10,
+      quantity: quantity,
+      serving: food.serving,
+      timestamp: new Date().toLocaleTimeString()
+    };
+    
+    setMeals([...meals, newMeal]);
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowAddMeal(false);
+  };
+
+  const addExercise = (exercise, duration) => {
+    const caloriesBurned = calculateCaloriesBurned(exercise.met, duration, user.weight);
+    const newExercise = {
+      id: Date.now(),
+      date: selectedDate,
+      name: exercise.name,
+      category: exercise.category,
+      duration: duration,
+      met: exercise.met,
+      caloriesBurned: caloriesBurned,
+      timestamp: new Date().toLocaleTimeString()
+    };
+    
+    setExercises([...exercises, newExercise]);
+    setShowAddExercise(false);
+  };
+
+  const deleteMeal = (id) => {
+    setMeals(meals.filter(meal => meal.id !== id));
+  };
+
+  const deleteExercise = (id) => {
+    setExercises(exercises.filter(exercise => exercise.id !== id));
+  };
+
+  // Funciones de obtención de datos
+  const getTodaysMeals = () => {
+    return meals.filter(meal => meal.date === selectedDate);
+  };
+
+  const getTodaysExercises = () => {
+    return exercises.filter(exercise => exercise.date === selectedDate);
+  };
+
+  const getTotalCalories = () => {
+    return getTodaysMeals().reduce((total, meal) => total + meal.calories, 0);
+  };
+
+  const getTotalCaloriesBurned = () => {
+    return getTodaysExercises().reduce((total, exercise) => total + exercise.caloriesBurned, 0);
+  };
+
+  const getTotalNutrients = () => {
+    const todaysMeals = getTodaysMeals();
+    return {
+      protein: Math.round(todaysMeals.reduce((total, meal) => total + meal.protein, 0) * 10) / 10,
+      carbs: Math.round(todaysMeals.reduce((total, meal) => total + meal.carbs, 0) * 10) / 10,
+      fat: Math.round(todaysMeals.reduce((total, meal) => total + meal.fat, 0) * 10) / 10,
+      fiber: Math.round(todaysMeals.reduce((total, meal) => total + meal.fiber, 0) * 10) / 10
+    };
+  };
+
+  const getCalorieProgress = () => {
+    const consumed = getTotalCalories();
+    const burned = getTotalCaloriesBurned();
+    const netCalories = consumed - burned;
+    const percentage = Math.min((netCalories / user.dailyGoal) * 100, 100);
+    return { 
+      consumed, 
+      burned,
+      netCalories,
+      percentage: Math.max(percentage, 0), 
+      remaining: Math.max(user.dailyGoal - netCalories, 0) 
+    };
+  };
+
+  useEffect(() => {
+    searchFoods(searchQuery);
+  }, [searchQuery]);
+
+  const progress = getCalorieProgress();
+  const nutrients = getTotalNutrients();
+
+  return (
+    <div className="app">
+      {/* Header */}
+      <header className="header">
+        <div className="container">
+          <div className="header-content">
+            <div className="brand">
+              <div className="brand-icon">
+                <Apple size={24} />
+              </div>
+              <div>
+                <h1>CaloriTrack</h1>
+                <p className="subtitle">Tu asistente nutricional</p>
+              </div>
+            </div>
+            
+            <div className="header-controls">
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="date-input"
+              />
+              <button
+                onClick={() => setEditingUser(!editingUser)}
+                className="icon-button"
+              >
+                <Edit3 size={20} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="container main-content">
+        {/* Panel de usuario */}
+        {editingUser && (
+          <div className="user-panel">
+            <h3>Configuración Personal</h3>
+            <div className="user-form">
+              <div className="form-group">
+                <label>Nombre</label>
+                <input
+                  type="text"
+                  value={user.name}
+                  onChange={(e) => setUser({...user, name: e.target.value})}
+                />
+              </div>
+              <div className="form-group">
+                <label>Género</label>
+                <select
+                  value={user.gender}
+                  onChange={(e) => setUser({...user, gender: e.target.value})}
+                >
+                  <option value="male">Masculino</option>
+                  <option value="female">Femenino</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Edad</label>
+                <input
+                  type="number"
+                  value={user.age}
+                  onChange={(e) => setUser({...user, age: parseInt(e.target.value)})}
+                />
+              </div>
+              <div className="form-group">
+                <label>Peso (kg)</label>
+                <input
+                  type="number"
+                  value={user.weight}
+                  onChange={(e) => setUser({...user, weight: parseInt(e.target.value)})}
+                />
+              </div>
+              <div className="form-group">
+                <label>Altura (cm)</label>
+                <input
+                  type="number"
+                  value={user.height}
+                  onChange={(e) => setUser({...user, height: parseInt(e.target.value)})}
+                />
+              </div>
+              <div className="form-group">
+                <label>Actividad Física</label>
+                <select
+                  value={user.activityLevel}
+                  onChange={(e) => setUser({...user, activityLevel: e.target.value})}
+                >
+                  <option value="sedentary">Sedentario (Sin ejercicio)</option>
+                  <option value="lightly_active">Ligero (1-3 días/semana)</option>
+                  <option value="moderately_active">Moderado (3-5 días/semana)</option>
+                  <option value="very_active">Muy activo (6-7 días/semana)</option>
+                  <option value="extra_active">Extremo (2x/día, ejercicio intenso)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Métricas de salud */}
+            <div className="health-metrics">
+              <h4>Métricas de Salud</h4>
+              <div className="metrics-grid">
+                <div className="metric">
+                  <div className="metric-value bmi-value">{calculateBMI()}</div>
+                  <div className="metric-label">BMI</div>
+                  <div className={`metric-category ${getBMICategory(calculateBMI()).color}`}>
+                    {getBMICategory(calculateBMI()).category}
+                  </div>
+                </div>
+                <div className="metric">
+                  <div className="metric-value bmr-value">{Math.round(calculateBMR())}</div>
+                  <div className="metric-label">BMR (kcal/día)</div>
+                  <div className="metric-sublabel">Metabolismo basal</div>
+                </div>
+                <div className="metric">
+                  <div className="metric-value tdee-value">{calculateTDEE()}</div>
+                  <div className="metric-label">TDEE (kcal/día)</div>
+                  <div className="metric-sublabel">Gasto total</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Objetivos */}
+            <div className="goals-section">
+              <h4>Recomendaciones Calóricas</h4>
+              <div className="goals-grid">
+                {Object.entries({
+                  lose: { name: 'Perder Peso', desc: '-0.5kg/semana' },
+                  maintain: { name: 'Mantener Peso', desc: 'Peso actual' },
+                  gain: { name: 'Ganar Peso', desc: '+0.3kg/semana' }
+                }).map(([key, obj]) => (
+                  <div 
+                    key={key}
+                    className={`goal-option ${user.goal === key ? 'active' : ''}`}
+                    onClick={() => updateGoalBasedOnObjective(key)}
+                  >
+                    <div className="goal-calories">
+                      {getCalorieRecommendations()[key]}
+                    </div>
+                    <div className="goal-name">{obj.name}</div>
+                    <div className="goal-desc">{obj.desc}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="user-actions">
+              <button
+                onClick={() => setEditingUser(false)}
+                className="btn btn-primary"
+              >
+                <Save size={18} />
+                Guardar
+              </button>
+              <div className="current-goal">
+                Meta actual: <strong>{user.dailyGoal} kcal/día</strong>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Dashboard principal */}
+        <div className="dashboard">
+          {/* Balance calórico */}
+          <div className="balance-card">
+            <div className="card-header">
+              <h2>Balance Calórico Diario</h2>
+              <Target size={24} />
+            </div>
+            
+            <div className="balance-summary">
+              <div className="balance-item consumed">
+                <div className="balance-value">{progress.consumed}</div>
+                <div className="balance-label">Consumidas</div>
+                <div className="balance-sublabel">Comidas</div>
+              </div>
+              <div className="balance-item burned">
+                <div className="balance-value">-{progress.burned}</div>
+                <div className="balance-label">Quemadas</div>
+                <div className="balance-sublabel">Ejercicio</div>
+              </div>
+              <div className="balance-item net">
+                <div className="balance-value">{progress.netCalories}</div>
+                <div className="balance-label">Netas</div>
+                <div className="balance-sublabel">Balance final</div>
+              </div>
+            </div>
+            
+            <div className="progress-circle">
+              <svg viewBox="0 0 100 100">
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="45"
+                  stroke="#f3f4f6"
+                  strokeWidth="8"
+                  fill="none"
+                />
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="45"
+                  stroke="#f97316"
+                  strokeWidth="8"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeDasharray={`${progress.percentage * 2.83} 283`}
+                  className="progress-stroke"
+                />
+              </svg>
+              <div className="progress-text">
+                <div className="progress-value">{progress.netCalories}</div>
+                <div className="progress-goal">de {user.dailyGoal}</div>
+              </div>
+            </div>
+            
+            <div className="progress-stats">
+              <div className="stat">
+                <div className="stat-value remaining">{progress.remaining}</div>
+                <div className="stat-label">Restantes</div>
+              </div>
+              <div className="stat">
+                <div className="stat-value percentage">{Math.round(progress.percentage)}%</div>
+                <div className="stat-label">Completado</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Estado nutricional */}
+          <div className="nutrition-card">
+            <h3>Estado Nutricional</h3>
+            
+            {/* BMI destacado */}
+            <div className="bmi-highlight">
+              <div className="bmi-value">{calculateBMI()}</div>
+              <div className="bmi-label">Índice de Masa Corporal</div>
+              <div className={`bmi-category ${getBMICategory(calculateBMI()).color}`}>
+                {getBMICategory(calculateBMI()).category}
+              </div>
+            </div>
+
+            {/* Macronutrientes */}
+            <div className="macros-section">
+              <h4>Macronutrientes Hoy</h4>
+              <div className="macros-list">
+                <div className="macro-item protein">
+                  <span>Proteínas</span>
+                  <span>{nutrients.protein}g</span>
+                </div>
+                <div className="macro-item carbs">
+                  <span>Carbohidratos</span>
+                  <span>{nutrients.carbs}g</span>
+                </div>
+                <div className="macro-item fats">
+                  <span>Grasas</span>
+                  <span>{nutrients.fat}g</span>
+                </div>
+                <div className="macro-item fiber">
+                  <span>Fibra</span>
+                  <span>{nutrients.fiber}g</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="tdee-info">
+              Tu gasto energético: <strong>{calculateTDEE()} kcal/día</strong>
+            </div>
+          </div>
+        </div>
+
+        {/* Sección de agregar actividades */}
+        <div className="add-activities">
+          {/* Agregar comida */}
+          <div className="activity-card">
+            <div className="card-header">
+              <h3>Registrar Comida</h3>
+              <button
+                onClick={() => setShowAddMeal(!showAddMeal)}
+                className="btn btn-orange"
+              >
+                <Apple size={18} />
+                {showAddMeal ? 'Cerrar' : 'Agregar'}
+              </button>
+            </div>
+
+            {showAddMeal && (
+              <div className="add-section">
+                <div className="search-box">
+                  <Search className="search-icon" size={20} />
+                  <input
+                    type="text"
+                    placeholder="Buscar alimentos... (ej: manzana, pollo, arroz)"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+
+                {isSearching && (
+                  <div className="loading">
+                    <div className="spinner"></div>
+                    <p>Buscando...</p>
+                  </div>
+                )}
+
+                {searchResults.length > 0 && (
+                  <div className="search-results">
+                    {searchResults.map((food, index) => (
+                      <div key={index} className="result-item">
+                        <div className="result-info">
+                          <h4>{food.name}</h4>
+                          <p>{food.calories} kcal por {food.serving}</p>
+                          <div className="nutrients">
+                            P: {food.protein}g | C: {food.carbs}g | G: {food.fat}g | F: {food.fiber}g
+                          </div>
+                        </div>
+                        <div className="result-actions">
+                          <input
+                            type="number"
+                            placeholder="100"
+                            className="quantity-input"
+                            id={`quantity-${index}`}
+                          />
+                          <span>g</span>
+                          <button
+                            onClick={() => {
+                              const quantity = document.getElementById(`quantity-${index}`).value || 100;
+                              addMealFromSearch(food, parseInt(quantity));
+                            }}
+                            className="btn btn-small btn-orange"
+                          >
+                            Agregar
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Agregar ejercicio */}
+          <div className="activity-card">
+            <div className="card-header">
+              <h3>Registrar Ejercicio</h3>
+              <button
+                onClick={() => setShowAddExercise(!showAddExercise)}
+                className="btn btn-green"
+              >
+                <Activity size={18} />
+                {showAddExercise ? 'Cerrar' : 'Agregar'}
+              </button>
+            </div>
+
+            {showAddExercise && (
+              <div className="add-section">
+                <div className="exercise-categories">
+                  {Object.entries(
+                    exerciseDatabase.reduce((acc, exercise) => {
+                      if (!acc[exercise.category]) acc[exercise.category] = [];
+                      acc[exercise.category].push(exercise);
+                      return acc;
+                    }, {})
+                  ).map(([category, exercises]) => (
+                    <div key={category} className="exercise-category">
+                      <h4 className="category-title">{category}</h4>
+                      {exercises.map((exercise, index) => (
+                        <div key={index} className="exercise-item">
+                          <div className="exercise-info">
+                            <h5>{exercise.name}</h5>
+                            <p>
+                              MET: {exercise.met} • ~{calculateCaloriesBurned(exercise.met, 30, user.weight)} kcal/30min
+                            </p>
+                          </div>
+                          <div className="exercise-actions">
+                            <input
+                              type="number"
+                              placeholder="30"
+                              min="1"
+                              className="duration-input"
+                              id={`duration-${category}-${index}`}
+                            />
+                            <span>min</span>
+                            <button
+                              onClick={() => {
+                                const duration = document.getElementById(`duration-${category}-${index}`).value || 30;
+                                addExercise(exercise, parseInt(duration));
+                              }}
+                              className="btn btn-small btn-green"
+                            >
+                              Agregar
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Actividades del día */
+        
